@@ -1,10 +1,10 @@
-(ns landsupport.operation
-  "OperationActor -- one land-transport-infrastructure-support
-  operation = one supervised actor run, expressed as a langgraph-clj
-  StateGraph. The advisor (Land Transport Support Advisor) is sealed
-  into a single node (:advise); its proposal is ALWAYS routed through
-  the Land Transport Support Governor (:govern) and the rollout phase
-  gate (:decide) before anything commits to the SSoT.
+(ns landtransport.operation
+  "OperationActor -- one land-transport-support operation = one
+  supervised actor run, expressed as a langgraph-clj StateGraph. The
+  advisor (Land Transport Support Advisor) is sealed into a single node
+  (:advise); its proposal is ALWAYS routed through the Land Transport
+  Support Governor (:govern) and the rollout phase gate (:decide)
+  before anything commits to the SSoT.
 
   Everything the actor depends on is injected, so each is a swap, not a
   rewrite:
@@ -14,20 +14,23 @@
 
   One graph run = one land-transport-support operation (intake ->
   advise -> govern -> decide -> commit | hold | approval). No unbounded
-  inner loop -- each operation is auditable and checkpointed.
+  inner loop -- each operation is auditable and checkpointed. A
+  land-dispatch record's life is advanced by MANY ops (safety-scope
+  intake / safety-scope verify / dispatch authorize / reconciliation
+  publish), each its own independent run.
 
   Human-in-the-loop = real approval workflow:
   `interrupt-before #{:request-approval}` pauses the actor and hands the
   decision to a human operator. The approver resumes with `{:approval
-  {:status :approved}}` (or :rejected). `:flag-structural-safety-concern`
-  ALWAYS reaches this node when the governor is clean -- see
-  `landsupport.phase`."
+  {:status :approved}}` (or :rejected). `:dispatch/authorize`/
+  `:reconciliation/publish` ALWAYS reach this node when the governor is
+  clean -- see `landtransport.phase`."
   (:require [langgraph.graph :as g]
             [langgraph.checkpoint :as cp]
-            [landsupport.advisor :as advisor]
-            [landsupport.governor :as governor]
-            [landsupport.phase :as phase]
-            [landsupport.store :as store]))
+            [landtransport.landtransportadvisor :as landtransportadvisor]
+            [landtransport.governor :as governor]
+            [landtransport.phase :as phase]
+            [landtransport.store :as store]))
 
 (defn- commit-fact [request context proposal]
   {:t          :committed
@@ -39,18 +42,19 @@
    :summary    (:summary proposal)})
 
 (defn- commit-record [request _context proposal]
-  {:op      (:op request)
+  {:effect  (:effect proposal)
    :path    [(:subject request)]
-   :value   (or (:value proposal) {})})
+   :value   (or (:value proposal) {})
+   :payload (:value proposal)})
 
 (defn build
-  "Compiles an OperationActor graph bound to `store` (any `landsupport.
-  store/Store`).
+  "Compiles an OperationActor graph bound to `store` (any
+  `landtransport.store/Store`).
   opts:
-    :advisor      -- a `landsupport.advisor/Advisor` (default: mock-advisor)
+    :advisor      -- a `landtransport.landtransportadvisor/Advisor` (default: mock-advisor)
     :checkpointer -- langgraph checkpointer (default: in-mem)"
   [store & [{:keys [advisor checkpointer]
-             :or   {advisor      (advisor/mock-advisor)
+             :or   {advisor      (landtransportadvisor/mock-advisor)
                     checkpointer (cp/mem-checkpointer)}}]]
   (-> (g/state-graph
        {:channels
@@ -65,15 +69,13 @@
 
       (g/add-node :intake (fn [s] s))
 
-      ;; Land Transport Support Advisor inference (the contained
-      ;; intelligence node) -- proposal only.
+      ;; Land Transport Support Advisor inference (the contained intelligence node) -- proposal only.
       (g/add-node :advise
         (fn [{:keys [request]}]
-          (let [p (advisor/-advise advisor store request)]
-            {:proposal p :audit [(advisor/trace request p)]})))
+          (let [p (landtransportadvisor/-advise advisor store request)]
+            {:proposal p :audit [(landtransportadvisor/trace request p)]})))
 
-      ;; Land Transport Support Governor -- independent censor
-      ;; (separate system than the LLM).
+      ;; Land Transport Support Governor -- independent censor (separate system than the LLM).
       (g/add-node :govern
         (fn [{:keys [request context proposal]}]
           {:verdict (governor/check request context proposal store)}))
@@ -96,7 +98,7 @@
                :audit [{:t :approval-requested
                         :op (:op request) :subject (:subject request)
                         :reason (or reason
-                                    (cond (:high-stakes? verdict) :high-stakes
+                                    (cond (:high-stakes? verdict) :actuation
                                           :else :low-confidence))
                         :phase ph
                         :confidence (:confidence verdict)}]}
@@ -112,7 +114,8 @@
           (if (= :approved (:status approval))
             {:disposition :commit
              :record (assoc (commit-record request context proposal)
-                            :approved-by (:by approval))
+                            :payload (assoc (:value proposal)
+                                            :approved-by (:by approval)))
              :audit [{:t :approval-granted :op (:op request)
                       :subject (:subject request) :by (:by approval)}]}
             {:disposition :hold

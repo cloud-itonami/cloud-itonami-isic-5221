@@ -76,54 +76,104 @@ Resolves via [`kotoba-lang/industry`](https://github.com/kotoba-lang/industry)
 See [`docs/business-model.md`](docs/business-model.md) and
 [`docs/operator-guide.md`](docs/operator-guide.md).
 
-## Implementation (R0)
+## Why an actor layer at all?
 
-The `landsupport` module (`src/landsupport/*.cljc`) is the first
-implemented slice of this blueprint's Core Contract: an OPERATIONS
-COORDINATION actor for land-transport-infrastructure-support
-facilities (toll roads, bridges, tunnels, parking facilities, bus
-terminals). It is deliberately **not** a structural-safety authority
-or facility-equipment controller -- it never dispatches a toll lane,
-operates facility equipment, or finalizes a structural-safety
-clearance itself. Every op it can ever commit carries `:effect
-:propose`.
+An LLM is great at drafting a dispatch summary, normalizing safety-
+scope intake records, and reading a booking log -- but it has **no
+notion of which jurisdiction's toll/terminal safety-scope law is
+official, no license to authorize a toll-lane change, a recovery-job
+dispatch or a terminal-slot operation, and no way to know on its own
+whether a recovery job's vehicle-condition check was actually
+completed, whether a terminal-slot operation's evidence was actually
+verified, or whether a recovered vehicle actually fits the tow
+vehicle's rated capacity**. Letting it authorize a dispatch or publish
+a reconciliation record directly invites fabricated regulatory
+citations, a recovery job dispatched without a completed vehicle-
+condition check, an unverified terminal-slot record, and an overloaded
+tow vehicle -- exposing motorists, recovery crews and carriers to real
+harm and the operator to real liability, for whoever runs it. This
+project seals the Land Transport Support Advisor into a single node
+and wraps it with an independent **Land Transport Support Governor**,
+a human **approval workflow**, and an immutable **audit ledger**.
 
-### Closed op-allowlist
+## Actuation
 
-- `:log-facility-record` -- toll-transaction/parking-occupancy/
-  facility-usage data logging (auto-eligible when clean, phase 3)
-- `:schedule-facility-maintenance` -- road/bridge/facility maintenance
-  scheduling proposal (always human-approved)
-- `:flag-structural-safety-concern` -- surfaces a structural-defect/
-  traffic-hazard concern for human structural-safety review; ALWAYS
-  escalates, never auto-commits at any phase
-- `:coordinate-supply-order` -- maintenance-materials procurement
-  proposal; auto-eligible when clean AND its `:cost-estimate` is at or
-  below `landsupport.governor/high-cost-threshold`, otherwise always
-  escalates
+**Authorizing a toll-lane / recovery-job / terminal-slot dispatch and
+publishing a multi-carrier reconciliation record are never autonomous,
+at any phase, by construction.** Two independent layers enforce this
+(`landtransport.governor`'s `:dispatch/authorize`/
+`:reconciliation/publish` high-stakes gate and `landtransport.phase`'s
+phase table, which never puts either op in any phase's `:auto` set) --
+see `landtransport.phase`'s docstring and
+`test/landtransport/phase_test.clj`'s
+`dispatch-authorize-never-auto-at-any-phase`/
+`reconciliation-publish-never-auto-at-any-phase`. The actor may draft,
+check and recommend; a human operator is always the one who actually
+authorizes a dispatch or publishes a reconciliation record.
 
-### Land Transport Support Governor -- four HARD, permanent checks
+## Run
 
-1. **Facility unregistered/unverified** -- the target facility must be
-   independently verified/registered by an external permit/
-   registration authority (this actor never writes `:registered?`/
-   `:verified?` itself) before any action.
-2. **Closed op-allowlist** -- `:op` must be one of the four ops above.
-3. **Effect not `:propose`** -- this actor never actuates; any other
-   `:effect` is rejected outright.
-4. **Structural-safety-clearance-finalization scope-exclusion** -- ANY
-   proposal (regardless of op) whose text reads as finalizing/
-   certifying a structural-safety clearance is a hard, permanent
-   block. The term list is phrased as the finalization ACTION
-   ("finalize the structural-safety clearance") rather than a bare
-   noun ("safety"/"structural") so a legitimate
-   `:flag-structural-safety-concern` proposal -- whose entire job is
-   to talk *about* a concern -- never self-trips the check. See
-   `test/landsupport/scope_exclusion_test.clj`.
+```bash
+clojure -M:dev:run     # walk one clean authorize + reconcile lifecycle, plus HARD-hold cases, through the actor
+clojure -M:dev:test    # governor contract · phase invariants · store contract · registry conformance · facts coverage
+clojure -M:lint        # clj-kondo (errors fail; CI mirrors this)
+```
 
-Run the test suite: `clojure -M:test` (`clojure -M:dev:test` also
-pins the local workspace `langchain-clj` override). Run the demo:
-`clojure -M:dev:run`. Lint: `clojure -M:lint`.
+## Layout
+
+| File | Role |
+|---|---|
+| `src/landtransport/store.cljc` | **Store** protocol -- `MemStore` (R0; `DatomicStore` is the deferred next seam) + append-only audit ledger + dispatch-authorization AND reconciliation-publish history (dual history). The double-actuation guard checks dedicated `:dispatched?`/`:reconciliation-published?` booleans rather than a `:status` value |
+| `src/landtransport/registry.cljc` | Dispatch-authorization/reconciliation-publish draft records, plus the self-contained tow-vehicle recovery-capacity range-check pure function (`recovery-capacity-exceeded?`) the governor re-verifies against -- no external capability library to delegate to |
+| `src/landtransport/facts.cljc` | Per-jurisdiction toll/terminal safety-scope catalog with an official spec-basis citation per entry (JPN/USA/GBR), honest coverage reporting |
+| `src/landtransport/landtransportadvisor.cljc` | **Land Transport Support Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/safety-scope-verification/dispatch-authorization/reconciliation-publish proposals |
+| `src/landtransport/governor.cljc` | **Land Transport Support Governor** -- 6 HARD checks (spec-basis · evidence-incomplete · dispatch-precondition-unmet (recovery-job vehicle-condition check / terminal-slot verified evidence) · recovery-capacity-exceeded, the fabrication value-vs-rated-limit discipline · already-dispatched · already-reconciled) + 1 soft (confidence/actuation gate) |
+| `src/landtransport/phase.cljc` | **Phase 0→3** -- read-only → assisted intake → assisted verify → supervised (dispatch/reconciliation always human; safety-scope intake is the ONLY auto-eligible op, no dispatch risk) |
+| `src/landtransport/operation.cljc` | **OperationActor** -- langgraph StateGraph |
+| `src/landtransport/sim.cljc` | demo driver |
+| `test/landtransport/*_test.clj` | governor contract · governor unit checks · phase invariants · store contract · registry conformance · facts coverage |
+
+## Business-process coverage (honest)
+
+This actor covers safety-scope intake through per-jurisdiction evidence
+assessment, dispatch authorization (toll-lane / recovery-job /
+terminal-slot) and reconciliation-record publication -- the core
+governed lifecycle:
+
+| Covered | Not covered (out of scope for this R0) |
+|---|---|
+| Safety-scope intake + per-jurisdiction evidence checklisting, HARD-gated on an official spec-basis citation (`:safety-scope/intake`/`:safety-scope/verify`) | Real robot/toll-gantry telemetry and dispatch integration, an `llm-advisor` actually wired to a live model (the code path exists; R0 ships `mock-advisor` only) |
+| Dispatch authorization, HARD-gated on full safety-scope evidence, the dispatch-kind-specific precondition (a completed vehicle-condition check for a recovery job; verified evidence for a terminal-slot operation), a recovery-capacity range check, plus a double-dispatch guard (`:dispatch/authorize`) | A `DatomicStore` backend (the `Store` protocol is designed for it -- see `landtransport.store` docstring -- but only `MemStore` ships at R0) |
+| Reconciliation-record publication, HARD-gated on full evidence and no double-publish (`:reconciliation/publish`) | Carrier/motorist billing settlement itself, terminal-berth/lane-dispatch scheduling optimization (the blueprint's own `:optimization` technology) |
+| Immutable audit ledger for every intake/verification/authorization/reconciliation decision | |
+
+Extending coverage is additive: add the next gate (e.g. a vapor-
+recovery-lane or berth-scheduling check) as its own governed op with
+its own HARD checks and tests, following the SAME "an independent
+governor re-verifies against the actor's own records before any
+real-world act" pattern this repo's flagship ops already establish.
+
+## Jurisdiction coverage (honest)
+
+`landtransport.facts/coverage` reports how many requested
+jurisdictions actually have an official spec-basis in
+`landtransport.facts/catalog` -- currently **3 seeded (JPN, USA, GBR)**
+out of ~194 jurisdictions worldwide. This is a starting catalog to
+prove the governor contract end-to-end, not a claim of global
+coverage. Adding a jurisdiction is additive: one map entry in
+`landtransport.facts/catalog`, citing a real official source -- never
+fabricate a jurisdiction's requirements to make coverage look bigger.
+
+## Maturity
+
+`:implemented` -- `Land Transport Support Advisor` + `Land Transport
+Support Governor` run as real, tested code (see `Run` above),
+promoted from the originally-published `:blueprint`-tier scaffold,
+following the SAME governed-actor architecture as the other prior
+actors across this fleet, with its own distinct, independently-named
+governor and its own self-contained recovery-capacity check. See
+[`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md) for
+the full architecture and decision record.
 
 ## License
 

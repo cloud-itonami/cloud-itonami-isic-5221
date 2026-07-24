@@ -1,4 +1,4 @@
-{:itonami.blueprint/id "cloud-itonami-5221"
+{:itonami.blueprint/id "cloud-itonami-isic-5221"
  :itonami.blueprint/name "Community Land Transport Support Operations"
  :itonami.blueprint/isic-rev5 "5221"
  :itonami.blueprint/domain :transport/land-transport-support
@@ -8,4 +8,5 @@
  :itonami.blueprint/robotics true
  :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger :logistics]
  :itonami.blueprint/optional-technologies [:optimization]
- :itonami.blueprint/status :public-oss}
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented}
