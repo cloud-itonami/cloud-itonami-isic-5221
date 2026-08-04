@@ -1,0 +1,51 @@
+{
+  "viewId": "open-rail.SV-1",
+  "viewType": "SV-1",
+  "title": "Systems Interface Description",
+  "did": "did:web:open-rail.etzhayyim.com",
+  "format": "json",
+  "content": {
+    "systems": [
+      {
+        "id": "sys.worker",
+        "name": "open-rail Worker",
+        "platform": "Cloudflare Workers",
+        "entrypoint": "worker/src/app.ts",
+        "interfaces": [
+          { "id": "if.xrpc.defineLine",     "kind": "XRPC", "method": "POST", "nsid": "com.etzhayyim.apps.openRail.defineLine" },
+          { "id": "if.xrpc.getLine",        "kind": "XRPC", "method": "GET",  "nsid": "com.etzhayyim.apps.openRail.getLine" },
+          { "id": "if.xrpc.listLines",      "kind": "XRPC", "method": "GET",  "nsid": "com.etzhayyim.apps.openRail.listLines" },
+          { "id": "if.xrpc.scheduleTrain",  "kind": "XRPC", "method": "POST", "nsid": "com.etzhayyim.apps.openRail.scheduleTrain" },
+          { "id": "if.xrpc.listTrainRuns",  "kind": "XRPC", "method": "GET",  "nsid": "com.etzhayyim.apps.openRail.listTrainRuns" },
+          { "id": "if.xrpc.reportIncident", "kind": "XRPC", "method": "POST", "nsid": "com.etzhayyim.apps.openRail.reportIncident" },
+          { "id": "if.xrpc.listIncidents",  "kind": "XRPC", "method": "GET",  "nsid": "com.etzhayyim.apps.openRail.listIncidents" }
+        ]
+      },
+      {
+        "id": "sys.d1",
+        "name": "Cloudflare D1 (SQLite)",
+        "platform": "D1",
+        "tables": ["lines", "stations", "train_runs", "incidents"]
+      },
+      {
+        "id": "sys.pds",
+        "name": "atproto.etzhayyim.com PDS",
+        "platform": "Service binding",
+        "interfaces": [{ "id": "if.pds.post", "kind": "wRPC", "method": "app.bsky.feed.post" }]
+      },
+      {
+        "id": "sys.auth",
+        "name": "auth.etzhayyim.com",
+        "platform": "Service binding",
+        "interfaces": [{ "id": "if.auth.resolveCaller", "kind": "wRPC", "method": "resolveCallerDid" }]
+      }
+    ],
+    "connections": [
+      { "from": "sys.worker", "to": "sys.d1",   "protocol": "D1 binding" },
+      { "from": "sys.worker", "to": "sys.pds",  "protocol": "Service binding (wRPC)" },
+      { "from": "sys.worker", "to": "sys.auth", "protocol": "Service binding (wRPC)" }
+    ]
+  },
+  "refs": { "viewIds": ["open-rail.OV-1", "open-rail.CV-2"] },
+  "version": 1
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://etzhayyim.com/schemas/camunda-form/v1",
+  "formKey": "openRail.reportIncident.v1",
+  "name": "Report Incident",
+  "version": 1,
+  "lexiconRef": "com.etzhayyim.apps.openRail.reportIncident",
+  "components": [
+    {
+      "key": "lineDid",
+      "label": "Line DID",
+      "type": "textfield",
+      "validate": { "required": true, "pattern": "^did:[a-z]+:.+" }
+    },
+    {
+      "key": "stationDid",
+      "label": "Station DID (nearest, optional)",
+      "type": "textfield",
+      "validate": { "pattern": "^did:[a-z]+:.+" }
+    },
+    {
+      "key": "occurredAt",
+      "label": "Occurred at (ISO 8601)",
+      "type": "textfield",
+      "validate": { "required": true }
+    },
+    {
+      "key": "category",
+      "label": "Category",
+      "type": "select",
+      "validate": { "required": true },
+      "values": [
+        { "label": "Mechanical failure", "value": "mechanical" },
+        { "label": "Signal / control",   "value": "signal" },
+        { "label": "Track / civil",      "value": "track" },
+        { "label": "Weather",            "value": "weather" },
+        { "label": "Human error",        "value": "human" },
+        { "label": "Foreign object",     "value": "obstacle" },
+        { "label": "Other",              "value": "other" }
+      ]
+    },
+    {
+      "key": "delayMin",
+      "label": "Delay (minutes)",
+      "type": "number",
+      "validate": { "required": true, "min": 0 },
+      "defaultValue": 0
+    },
+    {
+      "key": "injuries",
+      "label": "Injuries (count)",
+      "type": "number",
+      "validate": { "required": true, "min": 0 },
+      "defaultValue": 0
+    },
+    {
+      "key": "derailment",
+      "label": "Derailment occurred?",
+      "type": "checkbox",
+      "defaultValue": false
+    },
+    {
+      "key": "description",
+      "label": "Description",
+      "type": "textarea",
+      "validate": { "maxLength": 2048 }
+    }
+  ],
+  "variableMappings": {
+    "lineDid": "lineDid",
+    "stationDid": "stationDid",
+    "occurredAt": "occurredAt",
+    "category": "category",
+    "delayMin": "delayMin",
+    "injuries": "injuries",
+    "derailment": "derailment",
+    "description": "description"
+  }
+}

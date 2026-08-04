@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:camunda="http://camunda.org/schema/1.0/dmn"
+             id="open-rail-incident-severity"
+             name="Incident Severity"
+             namespace="https://etzhayyim.com/dmn/open-rail">
+  <decision id="openRail.incidentSeverity" name="Incident Severity">
+    <decisionTable id="dt_incidentSeverity" hitPolicy="FIRST">
+      <input id="i_injuries" label="injuries">
+        <inputExpression typeRef="number"><text>injuries</text></inputExpression>
+      </input>
+      <input id="i_delayMin" label="delayMin">
+        <inputExpression typeRef="number"><text>delayMin</text></inputExpression>
+      </input>
+      <input id="i_derailment" label="derailment">
+        <inputExpression typeRef="boolean"><text>derailment</text></inputExpression>
+      </input>
+
+      <output id="o_severity" label="severity" name="severity" typeRef="string"/>
+      <output id="o_requireGovReport" label="requireGovReport" name="requireGovReport" typeRef="boolean"/>
+
+      <rule id="r1">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>true</text></inputEntry>
+        <outputEntry><text>"critical"</text></outputEntry>
+        <outputEntry><text>true</text></outputEntry>
+      </rule>
+      <rule id="r2">
+        <inputEntry><text>&gt;= 1</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"major"</text></outputEntry>
+        <outputEntry><text>true</text></outputEntry>
+      </rule>
+      <rule id="r3">
+        <inputEntry><text>0</text></inputEntry>
+        <inputEntry><text>&gt;= 60</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"major"</text></outputEntry>
+        <outputEntry><text>true</text></outputEntry>
+      </rule>
+      <rule id="r4">
+        <inputEntry><text>0</text></inputEntry>
+        <inputEntry><text>&gt;= 15</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"moderate"</text></outputEntry>
+        <outputEntry><text>false</text></outputEntry>
+      </rule>
+      <rule id="r5">
+        <inputEntry><text>0</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"minor"</text></outputEntry>
+        <outputEntry><text>false</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

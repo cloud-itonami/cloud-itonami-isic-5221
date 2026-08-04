@@ -1,0 +1,41 @@
+{
+  "viewId": "open-rail.OV-6a",
+  "viewType": "OV-6a",
+  "title": "Operational Rules Model",
+  "did": "did:web:open-rail.etzhayyim.com",
+  "format": "json",
+  "content": {
+    "businessRules": [
+      {
+        "id": "rule.lineMonotonicKm",
+        "statement": "Stations within a line MUST have strictly monotonically increasing kmPost values.",
+        "kind": "constraint",
+        "enforcedBy": "worker/src/app.ts:defineLine() validation"
+      },
+      {
+        "id": "rule.runStopsSubset",
+        "statement": "scheduleTrain.stops[] MUST be a subset of the line's stations and in same direction order.",
+        "kind": "constraint",
+        "enforcedBy": "worker/src/app.ts:scheduleTrain() validation"
+      },
+      {
+        "id": "rule.incidentSeverity",
+        "statement": "incident.severity is derived: derailment → critical; injuries ≥ 1 → major; delay ≥ 60min → major; delay ≥ 15min → moderate; else minor. severity ≥ major triggers gov-audit social post.",
+        "kind": "decisionTable",
+        "dmnDecisionKey": "openRail.incidentSeverity",
+        "source": "dmn/incident-severity.dmn"
+      },
+      {
+        "id": "rule.appendOnlyIncident",
+        "statement": "Incident records are append-only. Corrections create a new incident referencing the original via supersedes.",
+        "kind": "invariant",
+        "enforcedBy": "no UPDATE/DELETE on incidents table"
+      }
+    ]
+  },
+  "refs": {
+    "dmnDecisionKeys": ["openRail.incidentSeverity"],
+    "viewIds": ["open-rail.OV-5b"]
+  },
+  "version": 1
+}

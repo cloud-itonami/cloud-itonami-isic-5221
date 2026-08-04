@@ -1,0 +1,39 @@
+{
+  "viewId": "open-rail.CV-2",
+  "viewType": "CV-2",
+  "title": "Capability Taxonomy",
+  "did": "did:web:open-rail.etzhayyim.com",
+  "format": "json",
+  "content": {
+    "capabilities": [
+      {
+        "id": "cap.networkDesign",
+        "name": "Network design",
+        "children": [
+          { "id": "cap.lineDefine", "name": "Define line", "realisedBy": "com.etzhayyim.apps.openRail.defineLine" },
+          { "id": "cap.lineQuery",  "name": "Query line",  "realisedBy": "com.etzhayyim.apps.openRail.getLine" },
+          { "id": "cap.lineList",   "name": "List lines",  "realisedBy": "com.etzhayyim.apps.openRail.listLines" }
+        ]
+      },
+      {
+        "id": "cap.operations",
+        "name": "Operations",
+        "children": [
+          { "id": "cap.runSchedule", "name": "Schedule train run", "realisedBy": "com.etzhayyim.apps.openRail.scheduleTrain" },
+          { "id": "cap.runList",     "name": "List train runs",    "realisedBy": "com.etzhayyim.apps.openRail.listTrainRuns" }
+        ]
+      },
+      {
+        "id": "cap.safety",
+        "name": "Safety / incidents",
+        "children": [
+          { "id": "cap.incidentReport",   "name": "Report incident",       "realisedBy": "com.etzhayyim.apps.openRail.reportIncident" },
+          { "id": "cap.incidentSeverity", "name": "Severity decisioning",  "realisedBy": "openRail.incidentSeverity (DMN)" },
+          { "id": "cap.incidentList",     "name": "List incidents",        "realisedBy": "com.etzhayyim.apps.openRail.listIncidents" }
+        ]
+      }
+    ]
+  },
+  "refs": { "viewIds": ["open-rail.OV-5b", "open-rail.SV-1"] },
+  "version": 1
+}

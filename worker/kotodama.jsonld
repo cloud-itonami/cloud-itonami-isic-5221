@@ -1,0 +1,56 @@
+{
+  "@context": "https://etzhayyim.com/ns/kotodama/v1",
+  "@id": "did:web:open-rail.etzhayyim.com",
+  "name": "open-rail",
+  "handle": "open-rail.etzhayyim.com",
+  "performerType": "service",
+  "runtimeType": "worker",
+  "project": "open-rail",
+  "convoSystemPrompt": "You are the ETZHAYYIM Open Rail agent. You manage railway network design (lines + stations), train run scheduling, and incident reporting for DID-identified operators. Apply railway safety rules: append-only incident log, monotonic km posts, severity-driven gov-audit posts.",
+  "governance": {
+    "raci": "responsible",
+    "classification": "operations",
+    "complianceFrameworks": ["rail-safety-baseline", "etzhayyim-ops-policy"]
+  },
+  "profile": {
+    "displayName": "ETZHAYYIM Open Rail",
+    "description": "Open-source railway operations reference implementation — line/station design + train scheduling + incident reporting (DMN severity).",
+    "avatar": "🚆",
+    "category": "transport",
+    "isBot": true,
+    "operator": "etzhayyim.com",
+    "agentType": "autonomous",
+    "capabilities": [
+      "line-define",
+      "line-query",
+      "train-schedule",
+      "incident-report",
+      "incident-severity-decisioning"
+    ]
+  },
+  "triggers": {
+    "subscribeRepos": {
+      "collections": [
+        "app.bsky.feed.post",
+        "com.etzhayyim.apps.openRail.line",
+        "com.etzhayyim.apps.openRail.station",
+        "com.etzhayyim.apps.openRail.trainRun",
+        "com.etzhayyim.apps.openRail.incident"
+      ]
+    }
+  },
+  "space": {
+    "name": "ETZHAYYIM Open Rail",
+    "description": "Open-source railway operations reference implementation",
+    "joinRule": "public",
+    "historyVisibility": "world-readable",
+    "convos": [
+      {
+        "name": "rail-ops",
+        "kind": "public",
+        "description": "Public operational events (line definitions, run publications, severity≥major incidents)",
+        "default": true
+      }
+    ]
+  }
+}

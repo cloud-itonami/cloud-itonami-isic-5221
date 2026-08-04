@@ -1,0 +1,27 @@
+{
+  "viewId": "open-rail.OV-1",
+  "viewType": "OV-1",
+  "title": "High-Level Operational Concept Graphic",
+  "did": "did:web:open-rail.etzhayyim.com",
+  "format": "json",
+  "content": {
+    "operationalNodes": [
+      { "id": "client",     "label": "Client (planner / operator UI / agent)" },
+      { "id": "rail",       "label": "open-rail.etzhayyim.com (Worker)" },
+      { "id": "store",      "label": "D1 (lines/stations/runs/incidents SSoT)" },
+      { "id": "pds",        "label": "atproto.etzhayyim.com (PDS, public audit)" },
+      { "id": "regulator",  "label": "Safety Regulator (DID)" },
+      { "id": "passenger",  "label": "Passenger / public" }
+    ],
+    "operationalFlows": [
+      { "from": "client",    "to": "rail",      "label": "XRPC (defineLine / scheduleTrain / reportIncident)" },
+      { "from": "rail",      "to": "store",     "label": "INSERT lines / runs / incidents" },
+      { "from": "rail",      "to": "pds",       "label": "app.bsky.feed.post (severity ≥ major)" },
+      { "from": "pds",       "to": "regulator", "label": "follow firehose" },
+      { "from": "passenger", "to": "rail",      "label": "XRPC (listTrainRuns / listIncidents)" }
+    ],
+    "narrative": "A planner declares a line + station sequence (network design). Operators publish daily train runs. Field crews submit incident reports; severity DMN classifies and gates a public audit post for major+ events visible to regulators and the public."
+  },
+  "refs": { "viewIds": ["open-rail.SV-1", "open-rail.OV-5b"] },
+  "version": 1
+}

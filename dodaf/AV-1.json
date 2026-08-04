@@ -1,0 +1,33 @@
+{
+  "viewId": "open-rail.AV-1",
+  "viewType": "AV-1",
+  "title": "Overview and Summary Information",
+  "did": "did:web:open-rail.etzhayyim.com",
+  "format": "json",
+  "content": {
+    "purpose": "Provide a DID-addressed railway operations service (line/station design + train scheduling + incident reporting) as an auditable, open-source reference implementation.",
+    "scope": {
+      "in": ["line + station network design", "train run scheduling", "incident reporting", "severity classification (DMN)"],
+      "out": ["realtime train tracking", "branching/junction graph", "rolling stock asset register", "slot allocation between operators"]
+    },
+    "architectureDescriptionContext": {
+      "mission": "Provide tamper-evident, DID-native railway operations primitives open to any AT Protocol client.",
+      "stakeholders": ["operators", "passengers (DIDs)", "maintenance crews", "safety regulators"],
+      "environment": "Cloudflare Workers + D1 (edge globally distributed)",
+      "standards": ["AT Protocol XRPC", "DoDAF v2.02", "BPMN 2.0", "DMN 1.3", "Camunda Forms", "GTFS-static-compatible (line/station)"]
+    },
+    "toolsAndMethods": [
+      "XRPC Lexicons for external contracts (com.etzhayyim.apps.openRail.*)",
+      "BPMN 2.0 for process definition (defineLine, reportIncident)",
+      "DMN 1.3 for decision rules (incidentSeverity)",
+      "Camunda Forms for human-task UI",
+      "OCEL 2.0 for incident/operations audit trail (future)"
+    ],
+    "findings": "MVP proven. Line topology = ordered station list with km-post + dwell, sufficient for single-track linear services. Severity DMN routes major events to gov audit channel.",
+    "recommendations": "Add GTFS-RT-compatible getTrainPositions for realtime ops; introduce graph topology for branching/junctions; extend incidentSeverity DMN with cause taxonomy."
+  },
+  "refs": {
+    "viewIds": ["open-rail.OV-1", "open-rail.OV-5b", "open-rail.OV-6a", "open-rail.CV-2", "open-rail.SV-1"]
+  },
+  "version": 1
+}

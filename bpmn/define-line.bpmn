@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="open-rail-define-line"
+                  targetNamespace="https://etzhayyim.com/bpmn/open-rail">
+  <bpmn:process id="defineLine" name="Define Line" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Init" name="Network design request"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="StartEvent_Init" targetRef="Task_CollectLineForm"/>
+
+    <bpmn:userTask id="Task_CollectLineForm" name="Collect line + stations form"
+                   camunda:formKey="openRail.defineLine.v1"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="Task_CollectLineForm" targetRef="Task_DefineLine"/>
+
+    <bpmn:serviceTask id="Task_DefineLine" name="com.etzhayyim.apps.openRail.defineLine"
+                      camunda:topic="com.etzhayyim.apps.openRail.defineLine"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="Task_DefineLine" targetRef="EndEvent_Defined"/>
+
+    <bpmn:endEvent id="EndEvent_Defined" name="Line defined"/>
+  </bpmn:process>
+</bpmn:definitions>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="open-rail-report-incident"
+                  targetNamespace="https://etzhayyim.com/bpmn/open-rail">
+  <bpmn:process id="reportIncident" name="Report Incident" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Init" name="Incident detected"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="StartEvent_Init" targetRef="Task_CollectIncidentForm"/>
+
+    <bpmn:userTask id="Task_CollectIncidentForm" name="Collect incident report form"
+                   camunda:formKey="openRail.reportIncident.v1"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="Task_CollectIncidentForm" targetRef="Task_ClassifySeverity"/>
+
+    <bpmn:businessRuleTask id="Task_ClassifySeverity" name="Incident severity (DMN)"
+                           camunda:decisionRef="openRail.incidentSeverity"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="Task_ClassifySeverity" targetRef="Task_PersistIncident"/>
+
+    <bpmn:serviceTask id="Task_PersistIncident" name="com.etzhayyim.apps.openRail.reportIncident"
+                      camunda:topic="com.etzhayyim.apps.openRail.reportIncident"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="Task_PersistIncident" targetRef="Gateway_GovReport"/>
+
+    <bpmn:exclusiveGateway id="Gateway_GovReport" name="Gov report required?" default="f5b"/>
+    <bpmn:sequenceFlow id="f5a" sourceRef="Gateway_GovReport" targetRef="Task_AuditPost">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requireGovReport == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="f5b" sourceRef="Gateway_GovReport" targetRef="EndEvent_Logged"/>
+
+    <bpmn:serviceTask id="Task_AuditPost" name="Emit app.bsky.feed.post (gov audit)"
+                      camunda:topic="app.bsky.feed.post"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="Task_AuditPost" targetRef="EndEvent_Reported"/>
+
+    <bpmn:endEvent id="EndEvent_Logged" name="Incident logged"/>
+    <bpmn:endEvent id="EndEvent_Reported" name="Incident reported to authority"/>
+  </bpmn:process>
+</bpmn:definitions>

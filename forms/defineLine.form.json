@@ -1,0 +1,48 @@
+{
+  "$schema": "https://etzhayyim.com/schemas/camunda-form/v1",
+  "formKey": "openRail.defineLine.v1",
+  "name": "Define Line",
+  "version": 1,
+  "lexiconRef": "com.etzhayyim.apps.openRail.defineLine",
+  "components": [
+    {
+      "key": "lineCode",
+      "label": "Line code",
+      "type": "textfield",
+      "validate": { "required": true, "pattern": "^[A-Z0-9-]{2,16}$" },
+      "description": "Short code (e.g. JR-YAMA, TKK-DT)"
+    },
+    {
+      "key": "displayName",
+      "label": "Display name",
+      "type": "textfield",
+      "validate": { "required": true, "maxLength": 64 }
+    },
+    {
+      "key": "operatorDid",
+      "label": "Operator DID",
+      "type": "textfield",
+      "validate": { "required": true, "pattern": "^did:[a-z]+:.+" }
+    },
+    {
+      "key": "gauge",
+      "label": "Track gauge (mm)",
+      "type": "number",
+      "validate": { "required": true, "min": 600, "max": 2000 },
+      "defaultValue": 1067
+    },
+    {
+      "key": "stations",
+      "label": "Stations (JSON: [{code,name,kmPost,dwellSec}])",
+      "type": "textarea",
+      "validate": { "required": true }
+    }
+  ],
+  "variableMappings": {
+    "lineCode": "lineCode",
+    "displayName": "displayName",
+    "operatorDid": "operatorDid",
+    "gauge": "gauge",
+    "stations": "stations"
+  }
+}
