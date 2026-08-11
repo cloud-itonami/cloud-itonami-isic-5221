@@ -1,0 +1,362 @@
+(ns landtransport.render-html
+  "Build-time HTML renderer for the land-transport-support operator
+  console. Drives the REAL actor stack deterministically -- the same
+  `landtransport.store` seed, the same `landtransport.operation`
+  StateGraph, the same `landtransport.governor` this repo ships -- and
+  writes `docs/samples/operator-console.html`.
+
+  Nothing here is mocked or hand-written: every row in the generated
+  console is read back out of the store the actor actually wrote to
+  (`store/ledger`, `store/all-land-dispatches`, `store/act1-history`,
+  `store/act2-history`), and every HARD hold shown is produced by
+  `landtransport.governor`'s own rules firing on the seeded records --
+  never a hardcoded string.
+
+  Input provenance: every subject driven below (`dispatch-1` ..
+  `dispatch-5`) exists in `landtransport.store/demo-data`. No subject
+  and no field is invented.
+
+  Ledger fact types: the store's append-only ledger only ever receives
+  `:committed` (from the `:commit` node) and the hold facts
+  (`:governor-hold` / `:approval-rejected`, from the `:hold` node).
+  `:approval-granted` and `:approval-requested` live on the in-memory
+  `:audit` channel ONLY and are never appended -- so this renderer does
+  not branch on them.
+
+  Determinism: no clock, no randomness, no map-iteration ordering. The
+  seed, the mock advisor and the op order are fixed, and every
+  collection rendered is either an append-ordered vector or explicitly
+  sorted. Re-running produces byte-identical output."
+  (:require [clojure.string :as str]
+            [langgraph.graph :as g]
+            [landtransport.facts :as facts]
+            [landtransport.governor :as governor]
+            [landtransport.operation :as op]
+            [landtransport.phase :as phase]
+            [landtransport.store :as store]))
+
+;; ----------------------------- drive the real actor -----------------------------
+
+(def ^:private operator
+  "The same operator context `landtransport.sim` uses."
+  {:actor-id "op-1" :actor-role :depot-superintendent :phase 3})
+
+(defn- exec!
+  "One governed operation = one graph run through the real actor."
+  [actor tid request]
+  (g/run* actor {:request request :context operator} {:thread-id tid}))
+
+(defn- approve!
+  "Resume a run paused at `:request-approval` with a real human approval."
+  [actor tid]
+  (g/run* actor {:approval {:status :approved :by "op-1"}}
+          {:thread-id tid :resume? true}))
+
+(defn run-demo!
+  "Walks the seeded land-dispatch records through the real actor and
+  returns the store the actor wrote to.
+
+  `dispatch-1` (JPN, toll-lane, clean) goes the whole way: intake ->
+  safety-scope verify -> dispatch authorize -> reconciliation publish,
+  with a human approving each actuation. The remaining records each
+  exercise exactly ONE of the governor's six HARD rules, so the console
+  shows every rule firing on its own record rather than a single
+  compound failure."
+  []
+  (let [db    (store/seed-db)
+        actor (op/build db)]
+    ;; --- clean lifecycle: dispatch-1 (JPN / toll-lane) ---
+    (exec! actor "t1" {:op :safety-scope/intake :subject "dispatch-1"
+                       :patch {:id "dispatch-1" :plaza-or-terminal-id "TOLL-42"}})
+    (exec! actor "t2" {:op :safety-scope/verify :subject "dispatch-1"})
+    (approve! actor "t2")
+    (exec! actor "t3" {:op :dispatch/authorize :subject "dispatch-1"})
+    (approve! actor "t3")
+    (exec! actor "t4" {:op :reconciliation/publish :subject "dispatch-1"})
+    (approve! actor "t4")
+
+    ;; --- HARD :no-spec-basis -- dispatch-2's jurisdiction "ATL" is not
+    ;;     in `landtransport.facts/catalog`, so the advisor cites nothing.
+    (exec! actor "t5" {:op :safety-scope/verify :subject "dispatch-2"})
+    ;; --- HARD :evidence-incomplete -- that verify held, so dispatch-2 has
+    ;;     no safety-scope assessment on file; authorizing anyway is refused.
+    (exec! actor "t6" {:op :dispatch/authorize :subject "dispatch-2"})
+
+    ;; --- HARD :dispatch-precondition-unmet (recovery-job) -- dispatch-3's
+    ;;     vehicle-condition check is not complete.
+    (exec! actor "t7" {:op :safety-scope/verify :subject "dispatch-3"})
+    (approve! actor "t7")
+    (exec! actor "t8" {:op :dispatch/authorize :subject "dispatch-3"})
+
+    ;; --- HARD :recovery-capacity-exceeded -- dispatch-4's recovered
+    ;;     vehicle outweighs the tow vehicle's rated capacity.
+    (exec! actor "t9" {:op :safety-scope/verify :subject "dispatch-4"})
+    (approve! actor "t9")
+    (exec! actor "t10" {:op :dispatch/authorize :subject "dispatch-4"})
+
+    ;; --- HARD :dispatch-precondition-unmet (terminal-slot) -- dispatch-5
+    ;;     has no verified terminal-slot evidence.
+    (exec! actor "t11" {:op :safety-scope/verify :subject "dispatch-5"})
+    (approve! actor "t11")
+    (exec! actor "t12" {:op :dispatch/authorize :subject "dispatch-5"})
+
+    ;; --- HARD double-actuation guards on the already-actuated dispatch-1.
+    (exec! actor "t13" {:op :dispatch/authorize :subject "dispatch-1"})
+    (exec! actor "t14" {:op :reconciliation/publish :subject "dispatch-1"})
+    db))
+
+;; ----------------------------- rendering helpers -----------------------------
+
+(defn- esc [v]
+  (-> (str v)
+      (str/replace "&" "&amp;")
+      (str/replace "<" "&lt;")
+      (str/replace ">" "&gt;")
+      (str/replace "\"" "&quot;")))
+
+(defn- kwstr
+  "`:safety-scope/verify` -> \"safety-scope/verify\" (keeps the namespace,
+  unlike `name`)."
+  [k]
+  (if (keyword? k) (subs (str k) 1) (str k)))
+
+(defn- basis-str [basis]
+  (str/join ", " (map kwstr basis)))
+
+(defn- yes-no [b]
+  (if b "<span class=\"ok\">yes</span>" "<span class=\"muted\">no</span>"))
+
+(defn- last-fact-for [ledger id]
+  (last (filter #(= id (:subject %)) ledger)))
+
+(defn- decision-cell
+  "The record's last ledger decision. Only `:committed` and
+  `:governor-hold` are branched on -- those are the only fact types this
+  demo's run actually appends to the store ledger."
+  [ledger id]
+  (let [f (last-fact-for ledger id)]
+    (cond
+      (nil? f) "<span class=\"muted\">no activity</span>"
+      (= :committed (:t f))
+      (str "<span class=\"ok\">committed</span> <code>" (esc (kwstr (:op f))) "</code>")
+      (= :governor-hold (:t f))
+      (str "<span class=\"critical\">HARD hold: " (esc (basis-str (:basis f))) "</span>")
+      :else (str "<span class=\"muted\">" (esc (kwstr (:t f))) "</span>"))))
+
+;; ----------------------------- sections -----------------------------
+
+(defn- dispatch-rows [db ledger]
+  (->> (store/all-land-dispatches db)
+       (map (fn [w]
+              (format (str "        <tr><td><code>%s</code></td><td>%s</td><td><code>%s</code></td>"
+                           "<td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>")
+                      (esc (:id w))
+                      (esc (:plaza-or-terminal-id w))
+                      (esc (kwstr (:dispatch-kind w)))
+                      (esc (:jurisdiction w))
+                      (yes-no (:dispatched? w))
+                      (yes-no (:reconciliation-published? w))
+                      (decision-cell ledger (:id w)))))
+       (str/join "\n")))
+
+(defn- hold-rows
+  "Every HARD hold the governor's own rules produced during the run."
+  [ledger]
+  (->> ledger
+       (filter #(= :governor-hold (:t %)))
+       (mapcat (fn [f]
+                 (map (fn [v]
+                        (format (str "        <tr><td><code>%s</code></td><td><code>%s</code></td>"
+                                     "<td><span class=\"critical\">%s</span></td><td>%s</td></tr>")
+                                (esc (kwstr (:op f)))
+                                (esc (:subject f))
+                                (esc (kwstr (:rule v)))
+                                (esc (:detail v))))
+                      (:violations f))))
+       (str/join "\n")))
+
+(defn- gate-rows
+  "Derived from `landtransport.phase/phases` and
+  `landtransport.governor/high-stakes` -- not a hand-written table."
+  []
+  (let [auto3 (get-in phase/phases [3 :auto])]
+    (->> (sort-by str phase/write-ops)
+         (map (fn [o]
+                (format "        <tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                        (esc (kwstr o))
+                        (yes-no (contains? auto3 o))
+                        (if (contains? governor/high-stakes o)
+                          "<span class=\"warn\">always human (actuation)</span>"
+                          "<span class=\"muted\">-</span>")
+                        (if (contains? auto3 o)
+                          "<span class=\"ok\">auto-commit when governor-clean</span>"
+                          "<span class=\"warn\">approval required</span>"))))
+         (str/join "\n"))))
+
+(defn- rule-rows
+  "The governor's six HARD rules, and whether this run actually observed
+  each one fire. Observed = the rule appears in a `:governor-hold` fact
+  the store appended."
+  [ledger]
+  (let [fired (into #{} (mapcat :basis (filter #(= :governor-hold (:t %)) ledger)))]
+    (->> [:no-spec-basis :evidence-incomplete :dispatch-precondition-unmet
+          :recovery-capacity-exceeded :already-dispatched :already-reconciled]
+         (map (fn [r]
+                (format "        <tr><td><code>%s</code></td><td>%s</td></tr>"
+                        (esc (kwstr r))
+                        (if (contains? fired r)
+                          "<span class=\"critical\">fired in this run</span>"
+                          "<span class=\"muted\">not exercised</span>"))))
+         (str/join "\n"))))
+
+(defn- coverage-rows
+  "Honest spec-basis coverage over the jurisdictions actually present in
+  the seeded records -- `landtransport.facts/coverage`, verbatim."
+  [db]
+  (let [iso3s (->> (store/all-land-dispatches db) (map :jurisdiction) distinct sort vec)
+        {:keys [requested covered covered-jurisdictions missing-jurisdictions note]}
+        (facts/coverage iso3s)]
+    (str "        <tr><td>jurisdictions in the record set</td><td>" requested "</td></tr>\n"
+         "        <tr><td>with an official spec-basis</td><td><span class=\"ok\">"
+         covered "</span> (" (esc (str/join ", " covered-jurisdictions)) ")</td></tr>\n"
+         "        <tr><td>with NO spec-basis</td><td><span class=\"critical\">"
+         (count missing-jurisdictions) "</span> ("
+         (esc (str/join ", " missing-jurisdictions)) ")</td></tr>\n"
+         "        <tr><td>coverage note</td><td class=\"muted\">" (esc note) "</td></tr>")))
+
+(defn- ledger-rows [ledger]
+  (->> ledger
+       (map (fn [{:keys [t op subject basis]}]
+              (format (str "        <tr><td>%s</td><td><code>%s</code></td>"
+                           "<td><code>%s</code></td><td>%s</td></tr>")
+                      (if (= :governor-hold t)
+                        "<span class=\"critical\">governor-hold</span>"
+                        (str "<span class=\"ok\">" (esc (kwstr t)) "</span>"))
+                      (esc (kwstr op))
+                      (esc subject)
+                      (esc (basis-str basis)))))
+       (str/join "\n")))
+
+(defn- record-rows
+  "The append-only draft records the store actually built via
+  `landtransport.registry` (unsigned drafts -- signature is the
+  operator's act, not this actor's)."
+  [history]
+  (if (seq history)
+    (->> history
+         (map (fn [r]
+                (format (str "        <tr><td><code>%s</code></td><td>%s</td>"
+                             "<td><code>%s</code></td><td>%s</td></tr>")
+                        (esc (get r "record_id"))
+                        (esc (get r "kind"))
+                        (esc (get r "land_dispatch_id"))
+                        (esc (get r "jurisdiction")))))
+         (str/join "\n"))
+    "        <tr><td colspan=\"4\" class=\"muted\">none</td></tr>"))
+
+;; ----------------------------- document -----------------------------
+
+(def ^:private css
+  (str "body{font:14px/1.6 -apple-system,BlinkMacSystemFont,\"Hiragino Sans\",sans-serif;"
+       "margin:0;color:#1a1a1a;background:#f4f5f7}"
+       ".bar{background:#16283c;color:#fff;padding:1.3rem 2rem}"
+       ".bar h1{margin:0;font-size:1.15rem;font-weight:600}"
+       ".bar p{margin:.35rem 0 0;font-size:.8rem;opacity:.75}"
+       "main{max-width:1040px;margin:1.5rem auto;padding:0 1rem}"
+       ".card{background:#fff;border-radius:8px;padding:1.1rem 1.4rem 1.3rem;"
+       "margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,.09)}"
+       ".card h2{margin:0 0 .2rem;font-size:1rem}"
+       ".muted{color:#70757a;font-size:.82rem}"
+       "table{border-collapse:collapse;width:100%;font-size:.85rem;margin-top:.7rem}"
+       "th,td{text-align:left;padding:.42rem .5rem;border-bottom:1px solid #eceef0;"
+       "vertical-align:top}"
+       "th{font-weight:600;color:#555;white-space:nowrap}"
+       ".ok{color:#0a7d33}.warn{color:#8a5a00}.critical{color:#b41010;font-weight:600}"
+       "code{background:#f0f1f3;padding:.1rem .3rem;border-radius:3px;font-size:.8rem}"
+       "footer{max-width:1040px;margin:0 auto 2.5rem;padding:0 1rem;"
+       "font-size:.78rem;color:#70757a}"))
+
+(defn render [db]
+  (let [ledger (vec (store/ledger db))
+        holds  (filter #(= :governor-hold (:t %)) ledger)]
+    (str
+     "<!doctype html>\n"
+     "<html lang=\"en\"><head><meta charset=\"utf-8\">"
+     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+     "<title>Land transport support operator console — cloud-itonami-isic-5221</title>"
+     "<style>" css "</style></head><body>\n"
+     "<header class=\"bar\">"
+     "<h1>Land transport support ops (ISIC 5221) — <code>landtransport</code></h1>"
+     "<p>Generated at build time by <code>landtransport.render-html</code> driving the real "
+     "<code>landtransport.operation</code> actor over the <code>landtransport.store</code> seed. "
+     "No mock data, no hand-written HTML.</p>"
+     "</header>\n<main>\n"
+
+     "<section class=\"card\"><h2>Land-dispatch records</h2>"
+     "<p class=\"muted\">Read back from <code>store/all-land-dispatches</code> after the run. "
+     "Every subject exists in <code>store/demo-data</code>.</p>"
+     "<table><thead><tr><th>Record</th><th>Plaza / terminal</th><th>Kind</th>"
+     "<th>Jurisdiction</th><th>Dispatched</th><th>Reconciled</th><th>Last decision</th></tr></thead>\n"
+     "      <tbody>\n" (dispatch-rows db ledger) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Governor HARD holds (" (count holds) ")</h2>"
+     "<p class=\"muted\">Produced by <code>landtransport.governor</code>'s own rules on the seeded "
+     "records. A HARD violation cannot be overridden by a human approver.</p>"
+     "<table><thead><tr><th>Op</th><th>Subject</th><th>Rule</th><th>Governor detail</th></tr></thead>\n"
+     "      <tbody>\n" (hold-rows ledger) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Governor rule coverage</h2>"
+     "<p class=\"muted\">All six HARD checks in <code>landtransport.governor/check</code>, and "
+     "whether this run observed each one fire.</p>"
+     "<table><thead><tr><th>Rule</th><th>Observed</th></tr></thead>\n"
+     "      <tbody>\n" (rule-rows ledger) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Action gate</h2>"
+     "<p class=\"muted\">Derived from <code>landtransport.phase/phases</code> (phase 3, "
+     "supervised-auto) and <code>landtransport.governor/high-stakes</code>. "
+     "<code>dispatch/authorize</code> and <code>reconciliation/publish</code> are absent from every "
+     "phase's <code>:auto</code> set — two independent layers agree that actuation is a human call."
+     "</p>"
+     "<table><thead><tr><th>Op</th><th>Phase-3 auto</th><th>High stakes</th><th>Gate</th></tr></thead>\n"
+     "      <tbody>\n" (gate-rows) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Spec-basis coverage</h2>"
+     "<p class=\"muted\">Reported by <code>landtransport.facts/coverage</code> over the "
+     "jurisdictions actually present in the record set. A jurisdiction with no entry has NO "
+     "spec-basis — the governor holds rather than letting the advisor invent one.</p>"
+     "<table><tbody>\n" (coverage-rows db) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Audit ledger (" (count ledger) " facts)</h2>"
+     "<p class=\"muted\">The append-only log from <code>store/ledger</code>, in commit order. "
+     "Only <code>:committed</code> and hold facts are ever appended — "
+     "<code>:approval-granted</code> lives on the in-memory <code>:audit</code> channel only.</p>"
+     "<table><thead><tr><th>Fact</th><th>Op</th><th>Subject</th><th>Basis</th></tr></thead>\n"
+     "      <tbody>\n" (ledger-rows ledger) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Draft dispatch-authorization records</h2>"
+     "<p class=\"muted\">Built by <code>landtransport.registry/register-authorization-record</code>; "
+     "unsigned drafts — signature is the operator's act, not this actor's.</p>"
+     "<table><thead><tr><th>Record id</th><th>Kind</th><th>Land dispatch</th>"
+     "<th>Jurisdiction</th></tr></thead>\n"
+     "      <tbody>\n" (record-rows (store/act1-history db)) "\n      </tbody></table></section>\n"
+
+     "<section class=\"card\"><h2>Draft reconciliation-publish records</h2>"
+     "<p class=\"muted\">Built by "
+     "<code>landtransport.registry/register-reconciliation-record</code>; unsigned drafts.</p>"
+     "<table><thead><tr><th>Record id</th><th>Kind</th><th>Land dispatch</th>"
+     "<th>Jurisdiction</th></tr></thead>\n"
+     "      <tbody>\n" (record-rows (store/act2-history db)) "\n      </tbody></table></section>\n"
+
+     "</main>\n<footer>Regenerate with <code>clojure -M:dev:render-html</code>. "
+     "Deterministic: same seed, same mock advisor, same op order — re-running produces "
+     "byte-identical output.</footer>\n</body></html>\n")))
+
+(defn -main [& args]
+  (let [out (or (first args) "docs/samples/operator-console.html")
+        db  (run-demo!)
+        f   (java.io.File. ^String out)]
+    (when-let [p (.getParentFile f)] (.mkdirs p))
+    (spit f (render db) :encoding "UTF-8")
+    (println "wrote" out
+             "-" (count (store/ledger db)) "ledger facts,"
+             (count (filter #(= :governor-hold (:t %)) (store/ledger db))) "HARD holds")))
