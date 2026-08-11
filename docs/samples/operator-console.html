@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Land transport support operator console — cloud-itonami-isic-5221</title><style>body{font:14px/1.6 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;margin:0;color:#1a1a1a;background:#f4f5f7}.bar{background:#16283c;color:#fff;padding:1.3rem 2rem}.bar h1{margin:0;font-size:1.15rem;font-weight:600}.bar p{margin:.35rem 0 0;font-size:.8rem;opacity:.75}main{max-width:1040px;margin:1.5rem auto;padding:0 1rem}.card{background:#fff;border-radius:8px;padding:1.1rem 1.4rem 1.3rem;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,.09)}.card h2{margin:0 0 .2rem;font-size:1rem}.muted{color:#70757a;font-size:.82rem}table{border-collapse:collapse;width:100%;font-size:.85rem;margin-top:.7rem}th,td{text-align:left;padding:.42rem .5rem;border-bottom:1px solid #eceef0;vertical-align:top}th{font-weight:600;color:#555;white-space:nowrap}.ok{color:#0a7d33}.warn{color:#8a5a00}.critical{color:#b41010;font-weight:600}code{background:#f0f1f3;padding:.1rem .3rem;border-radius:3px;font-size:.8rem}footer{max-width:1040px;margin:0 auto 2.5rem;padding:0 1rem;font-size:.78rem;color:#70757a}</style></head><body>
+<header class="bar"><h1>Land transport support ops (ISIC 5221) — <code>landtransport</code></h1><p>Generated at build time by <code>landtransport.render-html</code> driving the real <code>landtransport.operation</code> actor over the <code>landtransport.store</code> seed. No mock data, no hand-written HTML.</p></header>
+<main>
+<section class="card"><h2>Land-dispatch records</h2><p class="muted">Read back from <code>store/all-land-dispatches</code> after the run. Every subject exists in <code>store/demo-data</code>.</p><table><thead><tr><th>Record</th><th>Plaza / terminal</th><th>Kind</th><th>Jurisdiction</th><th>Dispatched</th><th>Reconciled</th><th>Last decision</th></tr></thead>
+      <tbody>
+        <tr><td><code>dispatch-1</code></td><td>TOLL-42</td><td><code>toll-lane</code></td><td>JPN</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td><span class="critical">HARD hold: already-reconciled</span></td></tr>
+        <tr><td><code>dispatch-2</code></td><td>TOLL-99</td><td><code>toll-lane</code></td><td>ATL</td><td><span class="muted">no</span></td><td><span class="muted">no</span></td><td><span class="critical">HARD hold: evidence-incomplete</span></td></tr>
+        <tr><td><code>dispatch-3</code></td><td>DEPOT-7</td><td><code>recovery-job</code></td><td>JPN</td><td><span class="muted">no</span></td><td><span class="muted">no</span></td><td><span class="critical">HARD hold: dispatch-precondition-unmet</span></td></tr>
+        <tr><td><code>dispatch-4</code></td><td>DEPOT-8</td><td><code>recovery-job</code></td><td>JPN</td><td><span class="muted">no</span></td><td><span class="muted">no</span></td><td><span class="critical">HARD hold: recovery-capacity-exceeded</span></td></tr>
+        <tr><td><code>dispatch-5</code></td><td>TERMINAL-3</td><td><code>terminal-slot</code></td><td>JPN</td><td><span class="muted">no</span></td><td><span class="muted">no</span></td><td><span class="critical">HARD hold: dispatch-precondition-unmet</span></td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Governor HARD holds (7)</h2><p class="muted">Produced by <code>landtransport.governor</code>'s own rules on the seeded records. A HARD violation cannot be overridden by a human approver.</p><table><thead><tr><th>Op</th><th>Subject</th><th>Rule</th><th>Governor detail</th></tr></thead>
+      <tbody>
+        <tr><td><code>safety-scope/verify</code></td><td><code>dispatch-2</code></td><td><span class="critical">no-spec-basis</span></td><td>公式spec-basisの引用が無い提案は法域要件として扱えない</td></tr>
+        <tr><td><code>dispatch/authorize</code></td><td><code>dispatch-2</code></td><td><span class="critical">evidence-incomplete</span></td><td>法域の必要書類(安全スコープ登録/回収業者ライセンス記録/複数事業者ターミナル予約証跡等)が充足していない状態での提案</td></tr>
+        <tr><td><code>dispatch/authorize</code></td><td><code>dispatch-3</code></td><td><span class="critical">dispatch-precondition-unmet</span></td><td>dispatch-3 は回収業務の車両状態確認(vehicle-condition-check)が未完了 -- 派遣認可提案は進められない</td></tr>
+        <tr><td><code>dispatch/authorize</code></td><td><code>dispatch-4</code></td><td><span class="critical">recovery-capacity-exceeded</span></td><td>dispatch-4 は被牽引車両重量(8000 kg)が牽引車両の定格容量(5000 kg)を超過 -- 牽引容量超過リスクのため派遣認可提案は進められない</td></tr>
+        <tr><td><code>dispatch/authorize</code></td><td><code>dispatch-5</code></td><td><span class="critical">dispatch-precondition-unmet</span></td><td>dispatch-5 はターミナル枠運用の検証済み証跡が無い -- 派遣認可提案は進められない</td></tr>
+        <tr><td><code>dispatch/authorize</code></td><td><code>dispatch-1</code></td><td><span class="critical">already-dispatched</span></td><td>dispatch-1 は既に派遣認可済み</td></tr>
+        <tr><td><code>reconciliation/publish</code></td><td><code>dispatch-1</code></td><td><span class="critical">already-reconciled</span></td><td>dispatch-1 は既に精算記録公開済み</td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Governor rule coverage</h2><p class="muted">All six HARD checks in <code>landtransport.governor/check</code>, and whether this run observed each one fire.</p><table><thead><tr><th>Rule</th><th>Observed</th></tr></thead>
+      <tbody>
+        <tr><td><code>no-spec-basis</code></td><td><span class="critical">fired in this run</span></td></tr>
+        <tr><td><code>evidence-incomplete</code></td><td><span class="critical">fired in this run</span></td></tr>
+        <tr><td><code>dispatch-precondition-unmet</code></td><td><span class="critical">fired in this run</span></td></tr>
+        <tr><td><code>recovery-capacity-exceeded</code></td><td><span class="critical">fired in this run</span></td></tr>
+        <tr><td><code>already-dispatched</code></td><td><span class="critical">fired in this run</span></td></tr>
+        <tr><td><code>already-reconciled</code></td><td><span class="critical">fired in this run</span></td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Action gate</h2><p class="muted">Derived from <code>landtransport.phase/phases</code> (phase 3, supervised-auto) and <code>landtransport.governor/high-stakes</code>. <code>dispatch/authorize</code> and <code>reconciliation/publish</code> are absent from every phase's <code>:auto</code> set — two independent layers agree that actuation is a human call.</p><table><thead><tr><th>Op</th><th>Phase-3 auto</th><th>High stakes</th><th>Gate</th></tr></thead>
+      <tbody>
+        <tr><td><code>dispatch/authorize</code></td><td><span class="muted">no</span></td><td><span class="warn">always human (actuation)</span></td><td><span class="warn">approval required</span></td></tr>
+        <tr><td><code>reconciliation/publish</code></td><td><span class="muted">no</span></td><td><span class="warn">always human (actuation)</span></td><td><span class="warn">approval required</span></td></tr>
+        <tr><td><code>safety-scope/intake</code></td><td><span class="ok">yes</span></td><td><span class="muted">-</span></td><td><span class="ok">auto-commit when governor-clean</span></td></tr>
+        <tr><td><code>safety-scope/verify</code></td><td><span class="muted">no</span></td><td><span class="muted">-</span></td><td><span class="warn">approval required</span></td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Spec-basis coverage</h2><p class="muted">Reported by <code>landtransport.facts/coverage</code> over the jurisdictions actually present in the record set. A jurisdiction with no entry has NO spec-basis — the governor holds rather than letting the advisor invent one.</p><table><tbody>
+        <tr><td>jurisdictions in the record set</td><td>2</td></tr>
+        <tr><td>with an official spec-basis</td><td><span class="ok">1</span> (JPN)</td></tr>
+        <tr><td>with NO spec-basis</td><td><span class="critical">1</span> (ATL)</td></tr>
+        <tr><td>coverage note</td><td class="muted">cloud-itonami-isic-5221 R0: 3 jurisdictions seeded with an official spec-basis. This is a starting catalog, not a survey of all ~194 jurisdictions -- extend `landtransport.facts/catalog`, never fabricate a jurisdiction's requirements.</td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Audit ledger (14 facts)</h2><p class="muted">The append-only log from <code>store/ledger</code>, in commit order. Only <code>:committed</code> and hold facts are ever appended — <code>:approval-granted</code> lives on the in-memory <code>:audit</code> channel only.</p><table><thead><tr><th>Fact</th><th>Op</th><th>Subject</th><th>Basis</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ok">committed</span></td><td><code>safety-scope/intake</code></td><td><code>dispatch-1</code></td><td>id, plaza-or-terminal-id</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>safety-scope/verify</code></td><td><code>dispatch-1</code></td><td>道路整備特別措置法 (Road Improvement Special Measures Act, toll-road concessions), https://www.mlit.go.jp/</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-1</code></td><td>dispatch-1</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>reconciliation/publish</code></td><td><code>dispatch-1</code></td><td>dispatch-1</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>safety-scope/verify</code></td><td><code>dispatch-2</code></td><td>no-spec-basis</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-2</code></td><td>evidence-incomplete</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>safety-scope/verify</code></td><td><code>dispatch-3</code></td><td>道路整備特別措置法 (Road Improvement Special Measures Act, toll-road concessions), https://www.mlit.go.jp/</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-3</code></td><td>dispatch-precondition-unmet</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>safety-scope/verify</code></td><td><code>dispatch-4</code></td><td>道路整備特別措置法 (Road Improvement Special Measures Act, toll-road concessions), https://www.mlit.go.jp/</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-4</code></td><td>recovery-capacity-exceeded</td></tr>
+        <tr><td><span class="ok">committed</span></td><td><code>safety-scope/verify</code></td><td><code>dispatch-5</code></td><td>道路整備特別措置法 (Road Improvement Special Measures Act, toll-road concessions), https://www.mlit.go.jp/</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-5</code></td><td>dispatch-precondition-unmet</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>dispatch/authorize</code></td><td><code>dispatch-1</code></td><td>already-dispatched</td></tr>
+        <tr><td><span class="critical">governor-hold</span></td><td><code>reconciliation/publish</code></td><td><code>dispatch-1</code></td><td>already-reconciled</td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Draft dispatch-authorization records</h2><p class="muted">Built by <code>landtransport.registry/register-authorization-record</code>; unsigned drafts — signature is the operator's act, not this actor's.</p><table><thead><tr><th>Record id</th><th>Kind</th><th>Land dispatch</th><th>Jurisdiction</th></tr></thead>
+      <tbody>
+        <tr><td><code>JPN-DISPATCH-000000</code></td><td>dispatch-authorization-draft</td><td><code>dispatch-1</code></td><td>JPN</td></tr>
+      </tbody></table></section>
+<section class="card"><h2>Draft reconciliation-publish records</h2><p class="muted">Built by <code>landtransport.registry/register-reconciliation-record</code>; unsigned drafts.</p><table><thead><tr><th>Record id</th><th>Kind</th><th>Land dispatch</th><th>Jurisdiction</th></tr></thead>
+      <tbody>
+        <tr><td><code>JPN-RECON-000000</code></td><td>reconciliation-publish-draft</td><td><code>dispatch-1</code></td><td>JPN</td></tr>
+      </tbody></table></section>
+</main>
+<footer>Regenerate with <code>clojure -M:dev:render-html</code>. Deterministic: same seed, same mock advisor, same op order — re-running produces byte-identical output.</footer>
+</body></html>
