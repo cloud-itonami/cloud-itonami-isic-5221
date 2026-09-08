@@ -32,7 +32,7 @@
   (that is `landtransport.operation`'s `:dispatch/authorize`/
   `:reconciliation/publish`, always human-gated -- see README
   `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is
@@ -97,7 +97,7 @@
     (throw (ex-info "dispatch-authorize: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "dispatch-authorize: sequence must be >= 0" {})))
-  (let [authorization-number (str (str/upper-case jurisdiction) "-DISPATCH-" (zero-pad sequence 6))
+  (let [authorization-number (str (str/upper jurisdiction) "-DISPATCH-" (zero-pad sequence 6))
         record {"record_id" authorization-number
                 "kind" "dispatch-authorization-draft"
                 "land_dispatch_id" land-dispatch-id
@@ -122,7 +122,7 @@
     (throw (ex-info "reconciliation-publish: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "reconciliation-publish: sequence must be >= 0" {})))
-  (let [reconciliation-number (str (str/upper-case jurisdiction) "-RECON-" (zero-pad sequence 6))
+  (let [reconciliation-number (str (str/upper jurisdiction) "-RECON-" (zero-pad sequence 6))
         record {"record_id" reconciliation-number
                 "kind" "reconciliation-publish-draft"
                 "land_dispatch_id" land-dispatch-id

@@ -16,7 +16,12 @@
  ;; `langchain-store` is kept as the next storage seam (a `DatomicStore`
  ;; alongside `MemStore`, mirroring `terminal.store`) even though R0 ships
  ;; MemStore only and does not yet call into it.
- :deps {io.github.kotoba-lang/langgraph
+ :deps {
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       io.github.kotoba-lang/langgraph
         {:local/root "../../kotoba-lang/langgraph"}
         io.github.kotoba-lang/langchain-store
         {:local/root "../../kotoba-lang/langchain-store"}}
