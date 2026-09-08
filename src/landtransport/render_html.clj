@@ -27,7 +27,7 @@
   seed, the mock advisor and the op order are fixed, and every
   collection rendered is either an append-ordered vector or explicitly
   sorted. Re-running produces byte-identical output."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [langgraph.graph :as g]
             [landtransport.facts :as facts]
             [landtransport.governor :as governor]
