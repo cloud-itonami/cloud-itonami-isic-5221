@@ -105,7 +105,7 @@ at any phase, by construction.** Two independent layers enforce this
 `:reconciliation/publish` high-stakes gate and `landtransport.phase`'s
 phase table, which never puts either op in any phase's `:auto` set) --
 see `landtransport.phase`'s docstring and
-`test/landtransport/phase_test.clj`'s
+`test/landtransport/phase_test.cljk`'s
 `dispatch-authorize-never-auto-at-any-phase`/
 `reconciliation-publish-never-auto-at-any-phase`. The actor may draft,
 check and recommend; a human operator is always the one who actually
@@ -123,14 +123,14 @@ clojure -M:lint        # clj-kondo (errors fail; CI mirrors this)
 
 | File | Role |
 |---|---|
-| `src/landtransport/store.cljc` | **Store** protocol -- `MemStore` (R0; `DatomicStore` is the deferred next seam) + append-only audit ledger + dispatch-authorization AND reconciliation-publish history (dual history). The double-actuation guard checks dedicated `:dispatched?`/`:reconciliation-published?` booleans rather than a `:status` value |
-| `src/landtransport/registry.cljc` | Dispatch-authorization/reconciliation-publish draft records, plus the self-contained tow-vehicle recovery-capacity range-check pure function (`recovery-capacity-exceeded?`) the governor re-verifies against -- no external capability library to delegate to |
-| `src/landtransport/facts.cljc` | Per-jurisdiction toll/terminal safety-scope catalog with an official spec-basis citation per entry (JPN/USA/GBR), honest coverage reporting |
-| `src/landtransport/landtransportadvisor.cljc` | **Land Transport Support Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/safety-scope-verification/dispatch-authorization/reconciliation-publish proposals |
-| `src/landtransport/governor.cljc` | **Land Transport Support Governor** -- 6 HARD checks (spec-basis · evidence-incomplete · dispatch-precondition-unmet (recovery-job vehicle-condition check / terminal-slot verified evidence) · recovery-capacity-exceeded, the fabrication value-vs-rated-limit discipline · already-dispatched · already-reconciled) + 1 soft (confidence/actuation gate) |
-| `src/landtransport/phase.cljc` | **Phase 0→3** -- read-only → assisted intake → assisted verify → supervised (dispatch/reconciliation always human; safety-scope intake is the ONLY auto-eligible op, no dispatch risk) |
-| `src/landtransport/operation.cljc` | **OperationActor** -- langgraph StateGraph |
-| `src/landtransport/sim.cljc` | demo driver |
+| `src/landtransport/store.cljk` | **Store** protocol -- `MemStore` (R0; `DatomicStore` is the deferred next seam) + append-only audit ledger + dispatch-authorization AND reconciliation-publish history (dual history). The double-actuation guard checks dedicated `:dispatched?`/`:reconciliation-published?` booleans rather than a `:status` value |
+| `src/landtransport/registry.cljk` | Dispatch-authorization/reconciliation-publish draft records, plus the self-contained tow-vehicle recovery-capacity range-check pure function (`recovery-capacity-exceeded?`) the governor re-verifies against -- no external capability library to delegate to |
+| `src/landtransport/facts.cljk` | Per-jurisdiction toll/terminal safety-scope catalog with an official spec-basis citation per entry (JPN/USA/GBR), honest coverage reporting |
+| `src/landtransport/landtransportadvisor.cljk` | **Land Transport Support Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/safety-scope-verification/dispatch-authorization/reconciliation-publish proposals |
+| `src/landtransport/governor.cljk` | **Land Transport Support Governor** -- 6 HARD checks (spec-basis · evidence-incomplete · dispatch-precondition-unmet (recovery-job vehicle-condition check / terminal-slot verified evidence) · recovery-capacity-exceeded, the fabrication value-vs-rated-limit discipline · already-dispatched · already-reconciled) + 1 soft (confidence/actuation gate) |
+| `src/landtransport/phase.cljk` | **Phase 0→3** -- read-only → assisted intake → assisted verify → supervised (dispatch/reconciliation always human; safety-scope intake is the ONLY auto-eligible op, no dispatch risk) |
+| `src/landtransport/operation.cljk` | **OperationActor** -- langgraph StateGraph |
+| `src/landtransport/sim.cljk` | demo driver |
 | `test/landtransport/*_test.clj` | governor contract · governor unit checks · phase invariants · store contract · registry conformance · facts coverage |
 
 ## Business-process coverage (honest)
