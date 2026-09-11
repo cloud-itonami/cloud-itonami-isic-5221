@@ -1,5 +1,5 @@
 (ns landtransport.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean land-dispatch
+  "Demo driver -- `kbb -M:dev:run`. Walks a clean land-dispatch
   record through intake -> safety-scope verification -> dispatch
   authorization (escalate/approve/commit) -> reconciliation publish
   (escalate/approve/commit), then shows HARD-hold scenarios: a
