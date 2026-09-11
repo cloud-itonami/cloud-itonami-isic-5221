@@ -30,9 +30,9 @@
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
-  ;; clojure -M:dev:run  -> drive the demo through one OperationActor
+  ;; kbb -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "landtransport.sim"]}
-  ;; clojure -M:dev:render-html -> drive the SAME real actor at build time
+  ;; kbb -M:dev:render-html -> drive the SAME real actor at build time
   ;; and write docs/samples/operator-console.html (deterministic, no mock).
   :render-html {:main-opts ["-m" "landtransport.render-html"]}
   :test {:extra-paths ["test"]

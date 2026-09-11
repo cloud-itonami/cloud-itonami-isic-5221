@@ -347,7 +347,7 @@
      "<th>Jurisdiction</th></tr></thead>\n"
      "      <tbody>\n" (record-rows (store/act2-history db)) "\n      </tbody></table></section>\n"
 
-     "</main>\n<footer>Regenerate with <code>clojure -M:dev:render-html</code>. "
+     "</main>\n<footer>Regenerate with <code>kbb -M:dev:render-html</code>. "
      "Deterministic: same seed, same mock advisor, same op order — re-running produces "
      "byte-identical output.</footer>\n</body></html>\n")))
 
