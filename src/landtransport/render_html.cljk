@@ -27,7 +27,7 @@
   seed, the mock advisor and the op order are fixed, and every
   collection rendered is either an append-ordered vector or explicitly
   sorted. Re-running produces byte-identical output."
-  (:require [kotoba.lang.text :as str]
+  (:require [kotoba.io :as kio] [kotoba.lang.text :as str]
             [langgraph.graph :as g]
             [landtransport.facts :as facts]
             [landtransport.governor :as governor]
@@ -354,8 +354,8 @@
 (defn -main [& args]
   (let [out (or (first args) "docs/samples/operator-console.html")
         db  (run-demo!)
-        f   (java.io.File. ^String out)]
-    (when-let [p (.getParentFile f)] (.mkdirs p))
+        f   (kio/file ^String out)]
+    (when-let [p (kio/parent-file f)] (kio/mkdirs p))
     (spit f (render db) :encoding "UTF-8")
     (println "wrote" out
              "-" (count (store/ledger db)) "ledger facts,"
