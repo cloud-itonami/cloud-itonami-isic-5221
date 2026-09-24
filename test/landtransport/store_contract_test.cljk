@@ -7,7 +7,7 @@
   (cloud-itonami-isic-5210) applies across its own two backends. Adding
   a `DatomicStore` later is a matter of proving IT against this same
   contract, not rewriting it."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [landtransport.store :as store]))
 
 (deftest read-parity

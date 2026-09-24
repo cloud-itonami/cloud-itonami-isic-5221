@@ -1,5 +1,5 @@
 (ns landtransport.registry-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [landtransport.registry :as r]))
 
 ;; ----------------------------- recovery-capacity range-check pure function -----------------------------

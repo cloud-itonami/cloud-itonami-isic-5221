@@ -5,7 +5,7 @@
   its own dedicated per-check unit tests. End-to-end contract coverage
   (via the actor graph, approvals and the audit ledger) lives in
   `governor_contract_test.clj`."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [landtransport.governor :as governor]
             [landtransport.store :as store]))
 
