@@ -1,0 +1,36 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": for service activities incidental to land
+;; transportation (ISIC 5221: toll roads, bus terminals, vehicle recovery)
+;; robots do toll-gantry/lane inspection, vehicle-recovery dispatch support
+;; and terminal-berth monitoring, gated by the Land Transport Support
+;; Governor. Physical work modelled here: a low-profile recovery carrier
+;; pulling a disabled car off a live lane onto the hard shoulder, and a
+;; gantry inspection arm swapping a toll-lane antenna/camera module.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-5221"
+ :cases
+ [{:id :disabled-car-to-shoulder
+   :kind :transport
+   :procedure "low-profile recovery carrier slides under a disabled car and moves it (2000 kg class) 60 m along the graded lane to the hard-shoulder refuge"
+   :params {:mass-kg 900.0 :distance-m 60.0 :v-max-mps 2.5 :a-max-mps2 0.5
+            :brake-decel-mps2 1.5 :drive-force-n 4500.0 :crr 0.015 :payload-kg 2000.0
+            :cog-height-m 0.25 :support-half-length-m 1.2 :payload-cog-height-m 0.55
+            :max-time-s 1200.0}
+   :sweep {:param :slope-deg :values [0.0 2.0 4.0 6.0 8.0 10.0]}
+   :quantity :cycle-time-s
+   :limit {:max 32.0 :basis "estimate: the live lane should be cleared within about half a minute of the carrier engaging the car"}
+   :boundary {:lo 0.0 :hi 12.0}}
+  {:id :gantry-module-swap
+   :kind :manipulator
+   :procedure "inspection arm on the toll gantry lifts a replacement antenna/camera module from the service tray to its mount above the lane"
+   :params {:l1-m 0.60 :l2-m 0.55 :m1-kg 7.0 :m2-kg 5.0
+            :from [0.70 -0.20] :to [0.30 0.80] :duration-s 3.0 :steps 500}
+   :sweep {:param :payload-kg :values [2.0 5.0 8.0 12.0 16.0]}
+   :quantity :peak-tau1-nm
+   :limit {:max 150.0 :basis "estimate: continuous shoulder torque of a ~10 kg-payload collaborative arm class"}
+   :boundary {:lo 0.5 :hi 50.0}}]}
